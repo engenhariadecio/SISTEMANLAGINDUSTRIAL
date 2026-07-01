@@ -439,7 +439,13 @@ def coletor():
 # ──────────────────────────────────────────────
 # Init & run
 # ──────────────────────────────────────────────
-if __name__ == '__main__':
-    from database import init_db
+# Cria as tabelas assim que o app sobe (gunicorn/Railway e execução local).
+# Idempotente: o database.py usa CREATE TABLE IF NOT EXISTS.
+from database import init_db
+try:
     init_db()
+except Exception as e:
+    print(f"[startup] Falha ao inicializar o banco: {e}", flush=True)
+
+if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
