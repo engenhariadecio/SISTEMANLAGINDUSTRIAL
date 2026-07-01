@@ -447,5 +447,13 @@ try:
 except Exception as e:
     print(f"[startup] Falha ao inicializar o banco: {e}", flush=True)
 
+# Migração única: só age se a variável OLD_DATABASE_URL estiver definida.
+# Copia materiais/movimentacoes do banco antigo. Remova a variável depois.
+from migracao import migrar_dados_iniciais
+try:
+    migrar_dados_iniciais()
+except Exception as e:
+    print(f"[startup] migracao falhou: {e}", flush=True)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
