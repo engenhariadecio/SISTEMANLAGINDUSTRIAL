@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0"><i class="bi bi-people text-primary"></i> Usuários</h4>
+</div>
+
+<div class="row g-3">
+  <!-- Novo usuário -->
+  <div class="col-12 col-lg-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-person-plus"></i> Novo usuário</div>
+      <div class="card-body">
+        <form method="POST">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Nome completo</label>
+            <input type="text" name="nome" class="form-control" placeholder="Ex.: João da Silva" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Usuário (login)</label>
+            <input type="text" name="usuario" class="form-control" placeholder="Ex.: joao" autocomplete="off" required>
+            <div class="form-text">Sem espaços. É o que a pessoa digita para entrar.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Senha</label>
+            <input type="text" name="senha" class="form-control" placeholder="Mínimo 6 caracteres" autocomplete="off" required>
+            <div class="form-text">A pessoa pode trocar depois com um administrador.</div>
+          </div>
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="is_admin" id="is_admin">
+            <label class="form-check-label" for="is_admin">
+              Administrador <span class="text-muted small">(pode gerenciar usuários)</span>
+            </label>
+          </div>
+          <button type="submit" class="btn btn-gradient w-100">
+            <i class="bi bi-check-lg"></i> Criar usuário
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lista de usuários -->
+  <div class="col-12 col-lg-8">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-ul"></i> Usuários cadastrados</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Usuário</th>
+                <th class="text-center">Perfil</th>
+                <th class="text-center">Status</th>
+                <th class="text-end">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in usuarios %}
+              <tr>
+                <td class="fw-bold">{{ u.nome }}</td>
+                <td><code>{{ u.usuario }}</code></td>
+                <td class="text-center">
+                  {% if u.is_admin %}
+                    <span class="badge bg-primary"><i class="bi bi-shield-lock"></i> Admin</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Operador</span>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% if u.ativo %}
+                    <span class="badge bg-success">Ativo</span>
+                  {% else %}
+                    <span class="badge bg-danger">Inativo</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  <div class="d-flex justify-content-end align-items-center gap-2 flex-wrap">
+                    <!-- Redefinir senha -->
+                    <form method="POST" action="/usuarios/senha/{{ u.id }}" class="d-flex gap-1">
+                      <input type="text" name="nova_senha" class="form-control form-control-sm"
+                             placeholder="Nova senha" style="width:130px;" autocomplete="off">
+                      <button class="btn btn-sm btn-outline-secondary" title="Redefinir senha">
+                        <i class="bi bi-key"></i>
+                      </button>
+                    </form>
+                    <!-- Ativar/Desativar -->
+                    {% if u.usuario != session.usuario %}
+                      <a href="/usuarios/toggle/{{ u.id }}"
+                         class="btn btn-sm {{ 'btn-outline-danger' if u.ativo else 'btn-outline-success' }}"
+                         title="{{ 'Desativar' if u.ativo else 'Ativar' }}">
+                        {% if u.ativo %}<i class="bi bi-person-x"></i>{% else %}<i class="bi bi-person-check"></i>{% endif %}
+                      </a>
+                    {% else %}
+                      <span class="badge bg-light text-muted border">você</span>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% else %}
+              <tr><td colspan="5" class="text-center text-muted py-4">Nenhum usuário cadastrado ainda.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <p class="text-muted small mt-2 mb-0">
+      <i class="bi bi-info-circle"></i>
+      As senhas são guardadas de forma criptografada — nem o administrador consegue vê-las, só redefinir.
+    </p>
+  </div>
+</div>
+{% endblock %}

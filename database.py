@@ -24,6 +24,20 @@ def init_db():
             observacao TEXT
         )
     ''')
+    # Coluna que registra quem fez a movimentação (idempotente, não apaga dados)
+    cur.execute('ALTER TABLE movimentacoes ADD COLUMN IF NOT EXISTS usuario TEXT')
+    # Usuários do sistema (senha sempre criptografada)
+    cur.execute('''
+        CREATE TABLE IF NOT EXISTS usuarios (
+            id         SERIAL PRIMARY KEY,
+            usuario    TEXT UNIQUE NOT NULL,
+            senha_hash TEXT NOT NULL,
+            nome       TEXT NOT NULL,
+            is_admin   BOOLEAN NOT NULL DEFAULT FALSE,
+            ativo      BOOLEAN NOT NULL DEFAULT TRUE,
+            criado_em  TEXT
+        )
+    ''')
     conn.commit()
     conn.close()
     print("✅ Banco PostgreSQL inicializado!")

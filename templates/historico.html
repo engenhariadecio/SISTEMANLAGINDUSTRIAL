@@ -57,6 +57,7 @@
             <th>Descrição</th>
             <th>Unidade</th>
             <th class="text-end">Quantidade</th>
+            <th>Usuário</th>
             <th>Observação</th>
           </tr>
         </thead>
@@ -82,11 +83,12 @@
               {% set q = mv.quantidade | float %}
               {% if q == q | int %}{{ q | int }}{% else %}{{ "%.2f" | format(q) }}{% endif %}
             </td>
+            <td class="small"><i class="bi bi-person-circle text-secondary"></i> {{ mv.usuario or '—' }}</td>
             <td class="small text-muted">{{ mv.observacao or '' }}</td>
           </tr>
           {% else %}
           <tr>
-            <td colspan="7" class="text-center text-muted py-4">
+            <td colspan="8" class="text-center text-muted py-4">
               <i class="bi bi-inbox"></i> Nenhuma movimentação encontrada.
             </td>
           </tr>

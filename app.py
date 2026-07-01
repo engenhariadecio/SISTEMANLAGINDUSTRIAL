@@ -2,9 +2,12 @@ import os
 import io
 import base64
 import csv
-from datetime import datetime
+import secrets
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from flask import (Flask, render_template, request, redirect,
                    url_for, session, flash, jsonify, Response)
+from werkzeug.security import generate_password_hash, check_password_hash
 import psycopg2
 import psycopg2.extras
 import barcode as python_barcode
@@ -12,11 +15,22 @@ from barcode.writer import ImageWriter
 from PIL import Image, ImageChops
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'nlag_deposito_2026')
+# Sem segredos fracos no código. Se a variável não existir no ambiente,
+# usa um valor aleatório (que ninguém conhece), em vez de um padrão público.
+app.secret_key = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
+# Mantém o login por 7 dias (evita deslogar ao fechar o navegador).
+app.permanent_session_lifetime = timedelta(days=7)
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
 
-APP_USUARIO = os.environ.get('APP_USUARIO', 'nlag')
-APP_SENHA   = os.environ.get('APP_SENHA',   'deposito2026')
+APP_USUARIO = os.environ.get('APP_USUARIO', 'admin')
+APP_SENHA   = os.environ.get('APP_SENHA') or secrets.token_urlsafe(24)
+
+# Fuso horário do Brasil (São Paulo). Usar em vez de datetime.now(),
+# que no servidor do Railway retorna UTC.
+TZ_BR = ZoneInfo('America/Sao_Paulo')
+
+def agora_br():
+    return datetime.now(TZ_BR)
 
 # ──────────────────────────────────────────────
 # DB helpers
@@ -115,13 +129,39 @@ def verificar_login():
     if request.endpoint not in rotas_liberadas and 'usuario' not in session:
         return redirect(url_for('login'))
 
+def seed_admin():
+    """Cria o primeiro admin a partir de APP_USUARIO/APP_SENHA, se não houver
+    nenhum usuário ainda. Assim sempre existe uma forma de entrar."""
+    try:
+        total = query('SELECT COUNT(*) AS n FROM usuarios', fetchone=True)
+        if total and total['n'] == 0:
+            usuario = os.environ.get('APP_USUARIO', 'admin').strip().lower()
+            senha = os.environ.get('APP_SENHA')
+            if senha:
+                query(
+                    'INSERT INTO usuarios (usuario, senha_hash, nome, is_admin, ativo, criado_em) '
+                    'VALUES (%s, %s, %s, TRUE, TRUE, %s) ON CONFLICT (usuario) DO NOTHING',
+                    (usuario, generate_password_hash(senha), 'Administrador',
+                     agora_br().strftime('%Y-%m-%d %H:%M:%S')), commit=True
+                )
+                print(f"[seed] Admin inicial criado: usuario '{usuario}'", flush=True)
+    except Exception as e:
+        print(f"[seed] Falha ao criar admin inicial: {e}", flush=True)
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     erro = None
     if request.method == 'POST':
-        if (request.form['usuario'] == APP_USUARIO and
-                request.form['senha'] == APP_SENHA):
-            session['usuario'] = request.form['usuario']
+        usuario = request.form.get('usuario', '').strip().lower()
+        senha   = request.form.get('senha', '')
+        u = query('SELECT * FROM usuarios WHERE usuario=%s AND ativo=TRUE',
+                  (usuario,), fetchone=True)
+        if u and check_password_hash(u['senha_hash'], senha):
+            session.permanent = True
+            session['usuario']  = u['usuario']
+            session['nome']     = u['nome']
+            session['is_admin'] = bool(u['is_admin'])
             return redirect(url_for('index'))
         erro = 'Usuário ou senha inválidos.'
     return render_template('login.html', erro=erro)
@@ -130,6 +170,68 @@ def login():
 def logout():
     session.clear()
     return redirect(url_for('login'))
+
+# ──────────────────────────────────────────────
+# Usuários (somente administradores)
+# ──────────────────────────────────────────────
+@app.route('/usuarios', methods=['GET', 'POST'])
+def usuarios():
+    if not session.get('is_admin'):
+        flash('Acesso restrito a administradores.', 'danger')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        usuario  = request.form.get('usuario', '').strip().lower()
+        nome     = request.form.get('nome', '').strip()
+        senha    = request.form.get('senha', '')
+        is_admin = request.form.get('is_admin') == 'on'
+        if not usuario or not nome or not senha:
+            flash('❌ Preencha usuário, nome e senha.', 'danger')
+        elif len(senha) < 6:
+            flash('❌ A senha deve ter pelo menos 6 caracteres.', 'danger')
+        elif query('SELECT 1 FROM usuarios WHERE usuario=%s', (usuario,), fetchone=True):
+            flash(f'❌ O usuário "{usuario}" já existe.', 'danger')
+        else:
+            query(
+                'INSERT INTO usuarios (usuario, senha_hash, nome, is_admin, ativo, criado_em) '
+                'VALUES (%s, %s, %s, %s, TRUE, %s)',
+                (usuario, generate_password_hash(senha), nome, is_admin,
+                 agora_br().strftime('%Y-%m-%d %H:%M:%S')), commit=True
+            )
+            flash(f'✅ Usuário "{usuario}" criado com sucesso.', 'success')
+        return redirect(url_for('usuarios'))
+
+    lista = query('SELECT id, usuario, nome, is_admin, ativo, criado_em '
+                  'FROM usuarios ORDER BY usuario', fetchall=True)
+    return render_template('usuarios.html', usuarios=lista)
+
+
+@app.route('/usuarios/toggle/<int:uid>')
+def usuarios_toggle(uid):
+    if not session.get('is_admin'):
+        return redirect(url_for('index'))
+    u = query('SELECT * FROM usuarios WHERE id=%s', (uid,), fetchone=True)
+    if u:
+        if u['usuario'] == session.get('usuario'):
+            flash('❌ Você não pode desativar a sua própria conta.', 'danger')
+        else:
+            query('UPDATE usuarios SET ativo = NOT ativo WHERE id=%s', (uid,), commit=True)
+            flash('✅ Status do usuário atualizado.', 'success')
+    return redirect(url_for('usuarios'))
+
+
+@app.route('/usuarios/senha/<int:uid>', methods=['POST'])
+def usuarios_senha(uid):
+    if not session.get('is_admin'):
+        return redirect(url_for('index'))
+    nova = request.form.get('nova_senha', '')
+    if len(nova) < 6:
+        flash('❌ A nova senha deve ter pelo menos 6 caracteres.', 'danger')
+    else:
+        query('UPDATE usuarios SET senha_hash=%s WHERE id=%s',
+              (generate_password_hash(nova), uid), commit=True)
+        flash('✅ Senha redefinida.', 'success')
+    return redirect(url_for('usuarios'))
 
 # ──────────────────────────────────────────────
 # Dashboard
@@ -144,7 +246,7 @@ def index():
     total_itens     = len(saldo)
     total_com_saldo = sum(1 for i in saldo if i['saldo'] > 0)
     total_zerados   = sum(1 for i in saldo if i['saldo'] <= 0)
-    agora = datetime.now().strftime('%d/%m/%Y %H:%M')
+    agora = agora_br().strftime('%d/%m/%Y %H:%M')
     return render_template('index.html',
                            saldo=saldo,
                            total_itens=total_itens,
@@ -235,7 +337,7 @@ def importar_csv():
 def entrada():
     material    = None
     barcode_img = None
-    agora      = datetime.now().strftime('%d/%m/%Y %H:%M')
+    agora      = agora_br().strftime('%d/%m/%Y %H:%M')
     codigo_pre = request.args.get('codigo', '')
     if codigo_pre:
         material    = query('SELECT * FROM materiais WHERE codigo=%s',
@@ -257,8 +359,8 @@ def entrada():
             flash(f'❌ Código {codigo} não encontrado.', 'danger')
             return redirect(url_for('entrada'))
         query(
-            'INSERT INTO movimentacoes (codigo,tipo,quantidade,data_hora,observacao) VALUES (%s,%s,%s,%s,%s)',
-            (codigo, 'ENTRADA', qty, datetime.now(), observacao), commit=True
+            'INSERT INTO movimentacoes (codigo,tipo,quantidade,data_hora,observacao,usuario) VALUES (%s,%s,%s,%s,%s,%s)',
+            (codigo, 'ENTRADA', qty, agora_br().strftime('%Y-%m-%d %H:%M:%S'), observacao, session.get('nome') or session.get('usuario')), commit=True
         )
         flash(f'✅ Entrada de {qty} {mat["unidade"]} registrada para {codigo}.', 'success')
         material    = mat
@@ -277,7 +379,7 @@ def imprimir_etiqueta():
     codigo      = request.args.get('codigo', '')
     material    = None
     barcode_img = None
-    agora = datetime.now().strftime('%d/%m/%Y %H:%M')
+    agora = agora_br().strftime('%d/%m/%Y %H:%M')
     if codigo:
         material    = query('SELECT * FROM materiais WHERE codigo=%s',
                             (codigo.upper(),), fetchone=True)
@@ -298,7 +400,7 @@ def print_etiqueta(codigo):
         return (f"<h3 style='font-family:sans-serif;padding:20px;color:red;'>"
                 f"Código {codigo} não encontrado.</h3>"), 404
     barcode_img = gerar_barcode_base64(codigo.upper())
-    agora_str   = datetime.now().strftime('%d/%m/%Y %H:%M')
+    agora_str   = agora_br().strftime('%d/%m/%Y %H:%M')
     return render_template('etiqueta_print.html',
                            material=material,
                            barcode_img=barcode_img,
@@ -309,7 +411,7 @@ def print_etiqueta(codigo):
 # ──────────────────────────────────────────────
 @app.route('/saida', methods=['GET', 'POST'])
 def saida():
-    agora = datetime.now().strftime('%d/%m/%Y %H:%M')
+    agora = agora_br().strftime('%d/%m/%Y %H:%M')
     if request.method == 'POST':
         codigo     = request.form['codigo'].strip().upper()
         quantidade = request.form['quantidade'].strip()
@@ -330,8 +432,8 @@ def saida():
             flash(f'❌ Saldo insuficiente. Saldo atual: {saldo} {mat["unidade"]}.', 'danger')
             return redirect(url_for('saida'))
         query(
-            'INSERT INTO movimentacoes (codigo,tipo,quantidade,data_hora,observacao) VALUES (%s,%s,%s,%s,%s)',
-            (codigo, 'SAIDA', qty, datetime.now(), observacao), commit=True
+            'INSERT INTO movimentacoes (codigo,tipo,quantidade,data_hora,observacao,usuario) VALUES (%s,%s,%s,%s,%s,%s)',
+            (codigo, 'SAIDA', qty, agora_br().strftime('%Y-%m-%d %H:%M:%S'), observacao, session.get('nome') or session.get('usuario')), commit=True
         )
         flash(f'✅ Saída de {qty} {mat["unidade"]} registrada para {codigo}.', 'success')
         return redirect(url_for('saida'))
@@ -346,7 +448,7 @@ def historico():
     codigo = request.args.get('codigo', '').strip().upper()
     tipo   = request.args.get('tipo', '').strip().upper()
     sql    = """SELECT m.data_hora, m.tipo, m.codigo, mat.descricao, mat.unidade,
-                       m.quantidade, m.observacao
+                       m.quantidade, m.observacao, m.usuario
                 FROM movimentacoes m
                 LEFT JOIN materiais mat ON mat.codigo = m.codigo
                 WHERE 1=1"""
@@ -359,7 +461,7 @@ def historico():
         params.append(tipo)
     sql += ' ORDER BY m.data_hora DESC LIMIT 500'
     movs = query(sql, params, fetchall=True)
-    agora = datetime.now().strftime('%d/%m/%Y %H:%M')
+    agora = agora_br().strftime('%d/%m/%Y %H:%M')
     return render_template('historico.html', movs=movs, agora=agora,
                            filtro_codigo=codigo, filtro_tipo=tipo)
 
@@ -446,6 +548,13 @@ try:
     init_db()
 except Exception as e:
     print(f"[startup] Falha ao inicializar o banco: {e}", flush=True)
+
+# Cria o administrador inicial (a partir de APP_USUARIO/APP_SENHA) se ainda
+# não houver nenhum usuário cadastrado.
+try:
+    seed_admin()
+except Exception as e:
+    print(f"[startup] seed_admin falhou: {e}", flush=True)
 
 # Migração única: só age se a variável OLD_DATABASE_URL estiver definida.
 # Copia materiais/movimentacoes do banco antigo. Remova a variável depois.

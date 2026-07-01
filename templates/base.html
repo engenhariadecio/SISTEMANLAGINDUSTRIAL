@@ -42,8 +42,9 @@
       transition: transform 0.3s ease;
     }
     #sidebar .brand {
-      background: var(--gradient);
+      background: #101823;
       padding: 18px 18px 16px;
+      border-bottom: 1px solid #24303f;
       display: flex; align-items: center; gap: 12px;
     }
     #sidebar .brand-logo {
@@ -75,7 +76,24 @@
     #sidebar .logout-area { margin-top: auto; padding: 14px 12px; border-top: 1px solid #24303f; }
 
     /* ── Main ── */
-    #main { margin-left: var(--sidebar-w); padding: 26px 30px 56px; min-height: 100vh; transition: margin-left 0.3s ease; }
+    #main { margin-left: var(--sidebar-w); min-height: 100vh; transition: margin-left 0.3s ease; }
+    #page-header {
+      position: sticky; top: 0; z-index: 60;
+      background: var(--gradient);
+      box-shadow: 0 4px 18px rgba(22,104,192,.22);
+      display: flex; align-items: center; gap: 14px;
+      padding: 13px 30px;
+    }
+    #page-header .ph-logo {
+      width: 44px; height: 44px; border-radius: 12px; flex: none;
+      object-fit: cover; background: #fff; box-shadow: 0 2px 12px rgba(0,0,0,.22);
+    }
+    #page-header .ph-eyebrow {
+      font-size: .62rem; font-weight: 700; letter-spacing: .16em;
+      text-transform: uppercase; color: rgba(255,255,255,.85);
+    }
+    #page-header .ph-title { font-size: 1.2rem; font-weight: 800; color: #fff; letter-spacing: -.02em; line-height: 1.15; }
+    #main-inner { padding: 24px 30px 56px; }
 
     /* ── Overlay + navbar mobile ── */
     #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; }
@@ -89,7 +107,9 @@
     @media (max-width: 768px) {
       #sidebar      { transform: translateX(-100%); box-shadow: 4px 0 24px rgba(0,0,0,.3); }
       #sidebar.open { transform: translateX(0); }
-      #main         { margin-left: 0; padding: 16px; }
+      #main         { margin-left: 0; }
+      #page-header  { display: none; }
+      #main-inner   { padding: 16px; }
       #navbar-mobile{ display: flex; }
       #overlay.show { display: block; }
     }
@@ -144,8 +164,9 @@
     .flash-container { position: sticky; top: 0; z-index: 990; }
 
     @media print {
-      #sidebar, #navbar-mobile, .no-print { display: none !important; }
-      #main { margin-left: 0 !important; padding: 0 !important; }
+      #sidebar, #navbar-mobile, #page-header, .no-print { display: none !important; }
+      #main { margin-left: 0 !important; }
+      #main-inner { padding: 0 !important; }
       .card::before { display: none; }
     }
   </style>
@@ -195,6 +216,13 @@
     <i class="bi bi-phone text-primary"></i> Modo Celular
   </a>
 
+  {% if session.is_admin %}
+  <div class="nav-section">Administração</div>
+  <a href="/usuarios" class="nav-link {% if request.endpoint=='usuarios' %}active{% endif %}">
+    <i class="bi bi-people"></i> Usuários
+  </a>
+  {% endif %}
+
   <div class="nav-section">Relatórios</div>
   <a href="/exportar_saldo" class="nav-link">
     <i class="bi bi-file-earmark-spreadsheet text-success"></i> Exportar Saldo CSV
@@ -222,7 +250,24 @@
 
 <!-- ── Conteúdo principal ── -->
 <div id="main">
-  <div class="flash-container">
+  <header id="page-header">
+    <img src="{{ url_for('static', filename='logo_decio.png') }}" alt="Décio Indústria Metalúrgica" class="ph-logo">
+    <div>
+      <div class="ph-eyebrow">Décio · Manutenção Industrial</div>
+      <div class="ph-title">Controle de Depósito NLAG</div>
+    </div>
+    {% if session.usuario %}
+    <div style="margin-left:auto; display:flex; align-items:center; gap:8px; color:#fff;">
+      <i class="bi bi-person-circle" style="font-size:1.3rem;"></i>
+      <div style="line-height:1.15; text-align:right;">
+        <div style="font-size:.85rem; font-weight:700;">{{ session.nome }}</div>
+        <div style="font-size:.64rem; color:rgba(255,255,255,.8); text-transform:uppercase; letter-spacing:.06em;">{{ 'Administrador' if session.is_admin else 'Operador' }}</div>
+      </div>
+    </div>
+    {% endif %}
+  </header>
+  <div id="main-inner">
+    <div class="flash-container">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
@@ -236,6 +281,7 @@
   </div>
 
   {% block content %}{% endblock %}
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
