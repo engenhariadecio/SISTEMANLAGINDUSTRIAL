@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h4 class="mb-4"><i class="bi bi-box-arrow-up"></i> Saída de Material</h4>
+
+<div class="row g-4">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header bg-danger text-white">
+        <i class="bi bi-dash-circle"></i> Registrar Saída
+      </div>
+      <div class="card-body">
+        <form method="POST" id="form-saida">
+          <div class="mb-3">
+            <label class="form-label fw-bold">Código de Barras</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+              <input type="text" name="codigo" id="campo-codigo"
+                     class="form-control form-control-lg"
+                     value="{{ request.args.get('codigo', '') }}"
+                     placeholder="Bipe, digite ou use a câmera..."
+                     autocomplete="off" required
+                     style="text-transform:uppercase;">
+              <button type="button" class="btn btn-dark" onclick="abrirCamera('saida')">
+                <i class="bi bi-camera"></i>
+              </button>
+            </div>
+            <div class="form-text">
+              <i class="bi bi-info-circle"></i>
+              Use o leitor físico, digite o código ou clique na câmera 📷
+            </div>
+          </div>
+
+          <div id="camera-container-saida" class="mb-3 d-none">
+            <div id="leitor-saida" style="width:100%;"></div>
+            <button type="button" class="btn btn-secondary btn-sm mt-2 w-100"
+                    onclick="fecharCamera('saida')">
+              <i class="bi bi-x-circle"></i> Fechar câmera
+            </button>
+          </div>
+
+          <div id="info-material" class="alert alert-warning d-none mb-3">
+            <strong><i class="bi bi-box"></i> <span id="desc-material"></span></strong><br>
+            <small>
+              Unidade: <span id="und-material"></span> &nbsp;|&nbsp;
+              Saldo disponível: <strong><span id="saldo-material"></span></strong>
+            </small>
+          </div>
+          <div id="erro-material" class="alert alert-danger d-none mb-3">
+            <i class="bi bi-exclamation-triangle"></i> Material não encontrado!
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Quantidade a Retirar</label>
+            <input type="number" name="quantidade" id="campo-qtd"
+                   class="form-control form-control-lg"
+                   step="0.01" min="0.01" placeholder="0" required>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Destino / Observação (opcional)</label>
+            <input type="text" name="observacao" class="form-control"
+                   placeholder="Setor, OS, solicitante...">
+          </div>
+
+          <button type="submit" class="btn btn-danger btn-lg w-100">
+            <i class="bi bi-check-circle"></i> Confirmar Saída
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header bg-secondary text-white">
+        <i class="bi bi-info-circle"></i> Instruções
+      </div>
+      <div class="card-body">
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item">
+            <i class="bi bi-1-circle text-danger"></i>&nbsp;
+            Clique em 📷 para abrir a câmera ou use o leitor físico
+          </li>
+          <li class="list-group-item">
+            <i class="bi bi-2-circle text-danger"></i>&nbsp;
+            O sistema mostrará o material e o saldo disponível
+          </li>
+          <li class="list-group-item">
+            <i class="bi bi-3-circle text-danger"></i>&nbsp;
+            Digite a quantidade a ser retirada
+          </li>
+          <li class="list-group-item">
+            <i class="bi bi-4-circle text-danger"></i>&nbsp;
+            Confirme — o saldo é atualizado imediatamente
+          </li>
+        </ul>
+        <div class="alert alert-warning mt-3 mb-0">
+          <i class="bi bi-shield-exclamation"></i>
+          Saídas que excedam o saldo disponível são bloqueadas.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  const campoCodigo = document.getElementById('campo-codigo');
+  const infoDiv     = document.getElementById('info-material');
+  const erroDiv     = document.getElementById('erro-material');
+  let   saldoAtual  = 0;
+  let   leitorAtivo = null;
+
+  function buscarMaterial(codigo) {
+    if (!codigo) return;
+    fetch('/api/material/' + encodeURIComponent(codigo))
+      .then(r => r.json())
+      .then(data => {
+        if (data.erro) {
+          infoDiv.classList.add('d-none');
+          erroDiv.classList.remove('d-none');
+          saldoAtual = 0;
+        } else {
+          erroDiv.classList.add('d-none');
+          saldoAtual = parseFloat(data.saldo);
+          const sFormatado = (saldoAtual % 1 === 0 ? saldoAtual.toFixed(0) : saldoAtual.toFixed(2));
+          document.getElementById('desc-material').textContent  = data.descricao;
+          document.getElementById('und-material').textContent   = data.unidade;
+          document.getElementById('saldo-material').textContent = sFormatado + ' ' + data.unidade;
+          infoDiv.className = saldoAtual <= 0
+            ? 'alert alert-danger mb-3'
+            : 'alert alert-warning mb-3';
+          infoDiv.classList.remove('d-none');
+          document.getElementById('campo-qtd').focus();
+        }
+      }).catch(() => {});
+  }
+
+  campoCodigo.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); buscarMaterial(this.value.trim().toUpperCase()); }
+  });
+  campoCodigo.addEventListener('blur', function() {
+    buscarMaterial(this.value.trim().toUpperCase());
+  });
+  window.addEventListener('load', function() {
+    const c = campoCodigo.value.trim();
+    if (c) buscarMaterial(c);
+  });
+
+  function abrirCamera(tela) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert('Câmera não suportada.\nAcesse via HTTPS ou use o leitor físico.');
+      return;
+    }
+    document.getElementById('camera-container-' + tela).classList.remove('d-none');
+    leitorAtivo = new Html5Qrcode('leitor-' + tela);
+    leitorAtivo.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 260, height: 120 } },
+      (cod) => { campoCodigo.value = cod.toUpperCase(); fecharCamera(tela); buscarMaterial(cod.toUpperCase()); },
+      () => {}
+    ).catch(() => {
+      leitorAtivo.start(
+        { facingMode: 'user' },
+        { fps: 10, qrbox: { width: 260, height: 120 } },
+        (cod) => { campoCodigo.value = cod.toUpperCase(); fecharCamera(tela); buscarMaterial(cod.toUpperCase()); },
+        () => {}
+      ).catch(err => {
+        fecharCamera(tela);
+        alert('Erro ao acessar câmera:\n' + err);
+      });
+    });
+  }
+
+  function fecharCamera(tela) {
+    document.getElementById('camera-container-' + tela).classList.add('d-none');
+    if (leitorAtivo) {
+      leitorAtivo.stop().then(() => { leitorAtivo.clear(); leitorAtivo = null; }).catch(() => {});
+    }
+  }
+
+  document.getElementById('form-saida').addEventListener('submit', function(e) {
+    const qtd = parseFloat(document.getElementById('campo-qtd').value);
+    if (saldoAtual > 0 && qtd > saldoAtual) {
+      e.preventDefault();
+      alert('Quantidade (' + qtd + ') maior que o saldo disponível (' + saldoAtual.toFixed(2) + ')!');
+    }
+  });
+</script>
+{% endblock %}

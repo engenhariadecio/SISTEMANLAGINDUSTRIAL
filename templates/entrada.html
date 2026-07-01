@@ -1,0 +1,293 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0"><i class="bi bi-box-arrow-in-down text-success"></i> Entrada de Material</h4>
+  <span class="text-muted small">{{ agora }}</span>
+</div>
+
+<div class="row g-4">
+
+  <!-- ── FORMULÁRIO DE ENTRADA ── -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header bg-success text-white">
+        <i class="bi bi-plus-circle"></i> Registrar Entrada no Estoque
+      </div>
+      <div class="card-body">
+        <form method="POST" id="form-entrada">
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Código do Material</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-upc-scan"></i></span>
+              <input type="text" name="codigo" id="campo-codigo"
+                     class="form-control form-control-lg"
+                     value="{{ material.codigo if material else request.args.get('codigo','') }}"
+                     placeholder="Bipe, digite ou use a câmera..."
+                     autocomplete="off" autofocus
+                     style="text-transform:uppercase;">
+              <button type="button" class="btn btn-dark" onclick="abrirCamera()">
+                <i class="bi bi-camera"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Câmera -->
+          <div id="camera-container" class="mb-3 d-none">
+            <div id="leitor-entrada" style="width:100%;"></div>
+            <button type="button" class="btn btn-secondary btn-sm mt-2 w-100"
+                    onclick="fecharCamera()">
+              <i class="bi bi-x-circle"></i> Fechar câmera
+            </button>
+          </div>
+
+          <!-- Info material -->
+          <div id="info-material" class="alert alert-success d-none mb-3">
+            <strong><i class="bi bi-box"></i> <span id="desc-material"></span></strong><br>
+            <small>Unidade: <span id="und-material"></span></small>
+          </div>
+          <div id="erro-material" class="alert alert-danger d-none mb-3">
+            <i class="bi bi-exclamation-triangle"></i> Material não encontrado!
+          </div>
+
+          <!-- Quantidade estoque -->
+          <div class="mb-3">
+            <label class="form-label fw-bold">
+              Quantidade a Dar Entrada
+              <span class="badge bg-success ms-1">Estoque</span>
+            </label>
+            <input type="number" name="quantidade" id="campo-quantidade"
+                   class="form-control form-control-lg"
+                   value="{{ quantidade or '' }}"
+                   step="0.01" min="0.01" placeholder="0" required>
+            <div class="form-text">
+              <i class="bi bi-info-circle"></i>
+              Esta quantidade será lançada no estoque.
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Observação (opcional)</label>
+            <input type="text" name="observacao" class="form-control"
+                   placeholder="NF, fornecedor, lote...">
+          </div>
+
+          <button type="submit" class="btn btn-success btn-lg w-100">
+            <i class="bi bi-check-circle"></i> Confirmar Entrada
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PAINEL DE IMPRESSÃO ── -->
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <i class="bi bi-printer"></i> Imprimir Etiqueta
+      </div>
+      <div class="card-body">
+
+        <div id="div-status-imp" class="d-none mb-3"></div>
+
+        <!-- Quantidade de etiquetas -->
+        <div class="mb-3">
+          <label class="form-label fw-bold">
+            <i class="bi bi-layers"></i> Quantidade de Etiquetas
+            <span class="badge bg-primary ms-1">Impressão</span>
+          </label>
+          <input type="number" id="campo-copias"
+                 class="form-control form-control-lg"
+                 value="1" min="1" max="99">
+          <div class="form-text">
+            <i class="bi bi-info-circle"></i>
+            Independente da quantidade lançada no estoque.
+          </div>
+        </div>
+
+        <button type="button" id="btn-imprimir"
+                class="btn btn-primary btn-lg w-100"
+                onclick="imprimirEtiqueta()"
+                {% if not material %}disabled{% endif %}>
+          <i class="bi bi-printer-fill"></i> Imprimir na Zebra
+        </button>
+
+        <!-- Preview -->
+        {% if material and barcode_img %}
+        <hr class="mt-3">
+        <p class="text-muted small mb-2">
+          <i class="bi bi-eye"></i> Preview — proporcional a 100mm × 50mm:
+        </p>
+        <div style="
+          width:100%;max-width:380px;height:190px;
+          border:2px solid #222;background:#fff;
+          padding:7px 11px 5px 11px;
+          font-family:Arial,sans-serif;
+          display:flex;flex-direction:column;
+          justify-content:space-between;
+          box-shadow:2px 2px 8px rgba(0,0,0,0.15);
+        ">
+          <!-- header -->
+          <div style="display:flex;justify-content:space-between;align-items:center;
+                      border-bottom:1.5px solid #000;padding-bottom:3px;">
+            <span style="font-size:9pt;font-weight:900;">NLAG · MANUTENÇÃO INDUSTRIAL</span>
+            <span style="font-size:7pt;color:#555;">{{ agora }}</span>
+          </div>
+          <!-- código + unidade -->
+          <div style="display:flex;align-items:center;gap:6px;margin-top:3px;">
+            <span style="font-size:7pt;color:#666;">Cód:</span>
+            <span style="font-size:15pt;font-weight:900;letter-spacing:1px;line-height:1;">
+              {{ material.codigo }}
+            </span>
+            <span style="margin-left:auto;font-size:7pt;font-weight:700;
+                         background:#1e2a3a;color:#fff;padding:1px 6px;border-radius:3px;">
+              {{ material.unidade }}
+            </span>
+          </div>
+          <!-- descrição -->
+          <div style="font-size:7.5pt;font-weight:700;text-transform:uppercase;
+                      line-height:1.25;color:#111;">
+            {{ material.descricao[:65] }}
+          </div>
+          <!-- barcode -->
+          <div style="border-top:1px solid #ccc;padding-top:3px;
+                      display:flex;flex-direction:column;align-items:center;">
+            <img src="data:image/png;base64,{{ barcode_img }}"
+                 style="height:50px;width:356px;object-fit:fill;">
+            <span style="font-size:6pt;letter-spacing:2px;
+                         font-family:'Courier New',monospace;margin-top:1px;">
+              {{ material.codigo }}
+            </span>
+          </div>
+        </div>
+        <div class="mt-2 text-muted small">
+          <i class="bi bi-info-circle"></i>
+          No diálogo: selecione <strong>DEC-Zebra003</strong>,
+          margens <strong>Nenhuma</strong>, tamanho <strong>100×50mm</strong>.
+        </div>
+        {% else %}
+        <div class="alert alert-secondary mt-3 mb-0" style="font-size:0.85rem;">
+          <i class="bi bi-info-circle"></i>
+          Registre uma entrada acima para habilitar a impressão da etiqueta.
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+let leitorAtivo   = null;
+let materialAtual = null;
+
+{% if material %}
+materialAtual = {
+  codigo:    "{{ material.codigo }}",
+  descricao: "{{ material.descricao }}",
+  unidade:   "{{ material.unidade }}"
+};
+document.getElementById('info-material').classList.remove('d-none');
+document.getElementById('desc-material').textContent = materialAtual.descricao;
+document.getElementById('und-material').textContent  = materialAtual.unidade;
+{% endif %}
+
+window.addEventListener('load', function () {
+  const c = document.getElementById('campo-codigo').value.trim();
+  if (c && !materialAtual) buscarMaterial(c);
+});
+
+function buscarMaterial(codigo) {
+  if (!codigo) return;
+  fetch('/api/material/' + encodeURIComponent(codigo.trim().toUpperCase()))
+    .then(r => r.json())
+    .then(d => {
+      const infoDiv = document.getElementById('info-material');
+      const erroDiv = document.getElementById('erro-material');
+      if (!d.erro) {
+        materialAtual = d;
+        document.getElementById('desc-material').textContent = d.descricao;
+        document.getElementById('und-material').textContent  = d.unidade;
+        infoDiv.classList.remove('d-none');
+        erroDiv.classList.add('d-none');
+        document.getElementById('btn-imprimir').disabled = false;
+      } else {
+        materialAtual = null;
+        infoDiv.classList.add('d-none');
+        erroDiv.classList.remove('d-none');
+        document.getElementById('btn-imprimir').disabled = true;
+      }
+    }).catch(() => {});
+}
+
+document.getElementById('campo-codigo').addEventListener('change', function () {
+  buscarMaterial(this.value.trim());
+});
+
+// ── Impressão via janela automática — igual ao imprimir_etiqueta ──
+function imprimirEtiqueta() {
+  if (!materialAtual) {
+    alert('Nenhum material carregado. Digite ou bipe o código primeiro.');
+    return;
+  }
+
+  const copias = parseInt(document.getElementById('campo-copias').value) || 1;
+  const codigo = materialAtual.codigo;
+
+  mostrarStatusImp('info', `⏳ Abrindo ${copias} etiqueta(s)...`);
+
+  for (let i = 0; i < copias; i++) {
+    setTimeout(function () {
+      const win = window.open(
+        '/print/' + encodeURIComponent(codigo),
+        '_blank',
+        'width=420,height=230,toolbar=0,menubar=0,location=0,scrollbars=0'
+      );
+      if (!win) {
+        mostrarStatusImp('danger',
+          '❌ Pop-up bloqueado! Clique no ícone na barra de endereço ' +
+          'e <strong>permita pop-ups</strong> para este site.'
+        );
+      }
+    }, i * 700);
+  }
+
+  setTimeout(function () {
+    mostrarStatusImp('success',
+      `✅ ${copias} etiqueta(s) prontas! ` +
+      'Selecione <strong>DEC-Zebra003</strong> → ' +
+      'Margens <strong>Nenhuma</strong> → OK.'
+    );
+  }, copias * 700 + 300);
+}
+
+function mostrarStatusImp(tipo, msg) {
+  const div = document.getElementById('div-status-imp');
+  div.className = `alert alert-${tipo}`;
+  div.innerHTML = msg;
+  div.classList.remove('d-none');
+}
+
+// ── Câmera ──
+function abrirCamera() {
+  document.getElementById('camera-container').classList.remove('d-none');
+  leitorAtivo = new Html5Qrcode('leitor-entrada');
+  leitorAtivo.start(
+    { facingMode: 'environment' },
+    { fps: 10, qrbox: { width: 280, height: 120 } },
+    (codigo) => {
+      document.getElementById('campo-codigo').value = codigo.toUpperCase();
+      fecharCamera();
+      buscarMaterial(codigo);
+    }, () => {}
+  ).catch(e => alert('Erro câmera: ' + e));
+}
+
+function fecharCamera() {
+  if (leitorAtivo) { leitorAtivo.stop().catch(() => {}); leitorAtivo = null; }
+  document.getElementById('camera-container').classList.add('d-none');
+}
+</script>
+{% endblock %}

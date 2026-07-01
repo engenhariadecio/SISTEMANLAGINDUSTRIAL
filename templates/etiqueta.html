@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    @media print { body { margin: 0; } .no-print { display: none; } }
+    .etiqueta {
+      border: 2px solid #000;
+      padding: 10px;
+      width: 280px;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    .codigo   { font-size: 18px; font-weight: bold; }
+    .descricao{ font-size: 13px; margin: 4px 0; }
+    .data     { font-size: 11px; color: #555; }
+  </style>
+</head>
+<body>
+  <div class="etiqueta">
+    <div class="codigo">{{ material.codigo }}</div>
+    <div class="descricao">{{ material.descricao }}</div>
+    <div class="data">{{ agora }} | {{ material.unidade }}</div>
+    <img src="data:image/png;base64,{{ barcode_img }}" style="width:100%;margin-top:6px;">
+  </div>
+  <br>
+  <button class="no-print" onclick="window.print()">🖨️ Imprimir Etiqueta</button>
+</body>
+</html>

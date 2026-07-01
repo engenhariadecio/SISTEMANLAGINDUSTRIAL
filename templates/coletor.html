@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Depósito NLAG — Modo Celular</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link rel="icon" href="{{ url_for('static', filename='logo_decio.png') }}">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Manrope', system-ui, sans-serif; }
+    body { background: linear-gradient(160deg, #2BA45C 0%, #1668C0 100%); min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+    .btn-coletor { width: 100%; padding: 20px; font-size: 1.2rem; font-weight: 700; border-radius: 14px; margin-bottom: 14px; border: none; display: flex; align-items: center; justify-content: center; gap: 12px; transition: transform 0.1s, opacity 0.2s; }
+    .btn-coletor:active { transform: scale(0.97); opacity: 0.85; }
+    .btn-entrada  { background: #1E9E57; color: #fff; }
+    .btn-saida    { background: #D6473F; color: #fff; }
+    .btn-saldo    { background: #1668C0; color: #fff; }
+    .btn-etiqueta { background: #16202E; color: #fff; }
+    .btn-historico{ background: #0E9AB8; color: #fff; }
+    .btn-sair     { background: rgba(255,255,255,.16); color: #fff; }
+    .logo-box { text-align: center; margin-bottom: 32px; }
+    .logo-box h2 { color: #fff; font-weight: 800; font-size: 1.5rem; margin: 12px 0 2px; letter-spacing: -.01em; }
+    .logo-box p  { color: rgba(255,255,255,.8); font-size: 0.8rem; }
+    .footer-info { color: rgba(255,255,255,.65); font-size: 0.75rem; text-align: center; margin-top: 20px; }
+    .desktop-link { color: rgba(255,255,255,.75); font-size: 0.78rem; text-align: center; margin-top: 10px; }
+    .desktop-link a { color: #fff; }
+  </style>
+</head>
+<body>
+  <div style="width:100%;max-width:360px;">
+    <div class="logo-box">
+      <img src="{{ url_for('static', filename='logo_decio.png') }}" alt="Décio" style="width:64px;height:64px;border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.28);">
+      <h2>Depósito NLAG</h2>
+      <p>Décio · Manutenção Industrial — Modo Celular</p>
+    </div>
+    <a href="/entrada"          class="btn-coletor btn-entrada">
+      <i class="bi bi-box-arrow-in-down" style="font-size:1.5rem;"></i> Entrada
+    </a>
+    <a href="/saida"            class="btn-coletor btn-saida">
+      <i class="bi bi-box-arrow-up" style="font-size:1.5rem;"></i> Saída
+    </a>
+    <a href="/imprimir_etiqueta" class="btn-coletor btn-etiqueta">
+      <i class="bi bi-tag" style="font-size:1.5rem;"></i> Imprimir Etiqueta
+    </a>
+    <a href="/"                 class="btn-coletor btn-saldo">
+      <i class="bi bi-speedometer2" style="font-size:1.5rem;"></i> Ver Saldo
+    </a>
+    <a href="/historico"        class="btn-coletor btn-historico">
+      <i class="bi bi-clock-history" style="font-size:1.5rem;"></i> Histórico
+    </a>
+    <a href="/logout"           class="btn-coletor btn-sair">
+      <i class="bi bi-box-arrow-right" style="font-size:1.5rem;"></i> Sair
+    </a>
+    <div class="footer-info">IP: {{ request.remote_addr }}</div>
+    <div class="desktop-link">
+      <a href="/">Versão desktop completa</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Etiqueta {{ material.codigo }}</title>
+  <style>
+
+    @page {
+      size: 100mm 50mm landscape;
+      margin: 0;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    html, body {
+      width: 100mm;
+      height: 50mm;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .etiqueta {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100mm;
+      height: 50mm;
+      /* +1cm direita: 3mm→13mm | +0,5cm baixo: 2mm→7mm */
+      padding: 7mm 3mm 2mm 13mm;
+      font-family: Arial, Helvetica, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: #fff;
+    }
+
+    /* CABEÇALHO */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 0.5mm solid #000;
+      padding-bottom: 1mm;
+      flex-shrink: 0;
+    }
+    .empresa {
+      font-size: 11pt;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #000;
+    }
+    .data {
+      font-size: 10pt;
+      font-weight: 700;
+      color: #000;
+    }
+
+    /* LINHA CÓDIGO + UNIDADE */
+    .linha-codigo {
+      display: flex;
+      align-items: center;
+      gap: 1.5mm;
+      flex-shrink: 0;
+    }
+    .label-cod {
+      font-size: 10pt;
+      font-weight: 700;
+      color: #333;
+    }
+    .valor-codigo {
+      font-size: 20pt;
+      font-weight: 900;
+      letter-spacing: 1px;
+      line-height: 1;
+      color: #000;
+    }
+    .badge-un {
+      margin-left: auto;
+      font-size: 9pt;
+      font-weight: 900;
+      background: #000;
+      color: #fff;
+      padding: 0.8mm 2.5mm;
+      border-radius: 2px;
+      white-space: nowrap;
+    }
+
+    /* DESCRIÇÃO — ocupa toda a largura */
+    .descricao {
+      font-size: 10pt;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #000;
+      line-height: 1.25;
+      flex-shrink: 0;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      width: 100%;
+    }
+
+    /* CÓDIGO DE BARRAS — ocupa toda a largura */
+    .barcode-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border-top: 0.3mm solid #bbb;
+      padding-top: 1mm;
+    }
+    .barcode-wrap img {
+      height: 14mm;
+      width: 94mm;
+      object-fit: fill;
+      display: block;
+      image-rendering: pixelated;
+    }
+
+  </style>
+</head>
+<body>
+<div class="etiqueta">
+
+  <div class="header">
+    <span class="empresa">NLAG · MANUTENÇÃO INDUSTRIAL</span>
+    <span class="data">{{ agora }}</span>
+  </div>
+
+  <div class="linha-codigo">
+    <span class="label-cod">Cód:</span>
+    <span class="valor-codigo">{{ material.codigo }}</span>
+    <span class="badge-un">{{ material.unidade }}</span>
+  </div>
+
+  <div class="descricao">{{ material.descricao }}</div>
+
+  {% if barcode_img %}
+  <div class="barcode-wrap">
+    <img src="data:image/png;base64,{{ barcode_img }}"
+         alt="{{ material.codigo }}">
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+window.addEventListener('load', function () {
+  var img = document.querySelector('.barcode-wrap img');
+  function doPrint() {
+    setTimeout(function () {
+      window.print();
+      window.onafterprint = function () { window.close(); };
+    }, 900);
+  }
+  if (img) {
+    if (img.complete && img.naturalWidth > 0) { doPrint(); }
+    else { img.onload = doPrint; img.onerror = doPrint; }
+  } else {
+    doPrint();
+  }
+});
+</script>
+</body>
+</html>
