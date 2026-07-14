@@ -128,6 +128,12 @@ def verificar_login():
     rotas_liberadas = ['login', 'static', 'print_etiqueta']
     if request.endpoint not in rotas_liberadas and 'usuario' not in session:
         return redirect(url_for('login'))
+    # Perfil "visualizador": só pode ver o saldo (dashboard) e exportá-lo.
+    if session.get('perfil') == 'visualizador':
+        permitido = set(rotas_liberadas) | {'index', 'exportar_saldo', 'logout'}
+        if request.endpoint not in permitido:
+            flash('Seu perfil permite apenas visualizar o saldo.', 'warning')
+            return redirect(url_for('index'))
 
 def seed_admin():
     """Cria o primeiro admin a partir de APP_USUARIO/APP_SENHA, se não houver
@@ -139,8 +145,8 @@ def seed_admin():
             senha = os.environ.get('APP_SENHA')
             if senha:
                 query(
-                    'INSERT INTO usuarios (usuario, senha_hash, nome, is_admin, ativo, criado_em) '
-                    'VALUES (%s, %s, %s, TRUE, TRUE, %s) ON CONFLICT (usuario) DO NOTHING',
+                    'INSERT INTO usuarios (usuario, senha_hash, nome, is_admin, ativo, criado_em, perfil) '
+                    "VALUES (%s, %s, %s, TRUE, TRUE, %s, 'admin') ON CONFLICT (usuario) DO NOTHING",
                     (usuario, generate_password_hash(senha), 'Administrador',
                      agora_br().strftime('%Y-%m-%d %H:%M:%S')), commit=True
                 )
@@ -158,10 +164,12 @@ def login():
         u = query('SELECT * FROM usuarios WHERE usuario=%s AND ativo=TRUE',
                   (usuario,), fetchone=True)
         if u and check_password_hash(u['senha_hash'], senha):
+            perfil = u.get('perfil') or ('admin' if u['is_admin'] else 'operador')
             session.permanent = True
             session['usuario']  = u['usuario']
             session['nome']     = u['nome']
-            session['is_admin'] = bool(u['is_admin'])
+            session['perfil']   = perfil
+            session['is_admin'] = (perfil == 'admin')
             return redirect(url_for('index'))
         erro = 'Usuário ou senha inválidos.'
     return render_template('login.html', erro=erro)
@@ -184,7 +192,10 @@ def usuarios():
         usuario  = request.form.get('usuario', '').strip().lower()
         nome     = request.form.get('nome', '').strip()
         senha    = request.form.get('senha', '')
-        is_admin = request.form.get('is_admin') == 'on'
+        perfil   = request.form.get('perfil', 'operador')
+        if perfil not in ('admin', 'operador', 'visualizador'):
+            perfil = 'operador'
+        is_admin = (perfil == 'admin')
         if not usuario or not nome or not senha:
             flash('❌ Preencha usuário, nome e senha.', 'danger')
         elif len(senha) < 6:
@@ -193,15 +204,15 @@ def usuarios():
             flash(f'❌ O usuário "{usuario}" já existe.', 'danger')
         else:
             query(
-                'INSERT INTO usuarios (usuario, senha_hash, nome, is_admin, ativo, criado_em) '
-                'VALUES (%s, %s, %s, %s, TRUE, %s)',
+                'INSERT INTO usuarios (usuario, senha_hash, nome, is_admin, ativo, criado_em, perfil) '
+                'VALUES (%s, %s, %s, %s, TRUE, %s, %s)',
                 (usuario, generate_password_hash(senha), nome, is_admin,
-                 agora_br().strftime('%Y-%m-%d %H:%M:%S')), commit=True
+                 agora_br().strftime('%Y-%m-%d %H:%M:%S'), perfil), commit=True
             )
             flash(f'✅ Usuário "{usuario}" criado com sucesso.', 'success')
         return redirect(url_for('usuarios'))
 
-    lista = query('SELECT id, usuario, nome, is_admin, ativo, criado_em '
+    lista = query('SELECT id, usuario, nome, is_admin, ativo, criado_em, perfil '
                   'FROM usuarios ORDER BY usuario', fetchall=True)
     return render_template('usuarios.html', usuarios=lista)
 

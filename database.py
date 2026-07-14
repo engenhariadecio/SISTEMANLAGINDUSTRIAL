@@ -38,6 +38,9 @@ def init_db():
             criado_em  TEXT
         )
     ''')
+    # Coluna de perfil: 'admin', 'operador' ou 'visualizador' (idempotente)
+    cur.execute("ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS perfil TEXT NOT NULL DEFAULT 'operador'")
+    cur.execute("UPDATE usuarios SET perfil='admin' WHERE is_admin=TRUE AND perfil <> 'admin'")
     conn.commit()
     conn.close()
     print("✅ Banco PostgreSQL inicializado!")

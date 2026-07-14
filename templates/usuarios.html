@@ -25,11 +25,13 @@
             <input type="text" name="senha" class="form-control" placeholder="Mínimo 6 caracteres" autocomplete="off" required>
             <div class="form-text">A pessoa pode trocar depois com um administrador.</div>
           </div>
-          <div class="form-check mb-3">
-            <input class="form-check-input" type="checkbox" name="is_admin" id="is_admin">
-            <label class="form-check-label" for="is_admin">
-              Administrador <span class="text-muted small">(pode gerenciar usuários)</span>
-            </label>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Perfil de acesso</label>
+            <select name="perfil" class="form-select">
+              <option value="operador" selected>Operador — cadastra e movimenta estoque</option>
+              <option value="visualizador">Visualizador — só enxerga o saldo</option>
+              <option value="admin">Administrador — também gerencia usuários</option>
+            </select>
           </div>
           <button type="submit" class="btn btn-gradient w-100">
             <i class="bi bi-check-lg"></i> Criar usuário
@@ -61,8 +63,10 @@
                 <td class="fw-bold">{{ u.nome }}</td>
                 <td><code>{{ u.usuario }}</code></td>
                 <td class="text-center">
-                  {% if u.is_admin %}
+                  {% if u.perfil == 'admin' %}
                     <span class="badge bg-primary"><i class="bi bi-shield-lock"></i> Admin</span>
+                  {% elif u.perfil == 'visualizador' %}
+                    <span class="badge bg-info"><i class="bi bi-eye"></i> Visualizador</span>
                   {% else %}
                     <span class="badge bg-secondary">Operador</span>
                   {% endif %}

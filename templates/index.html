@@ -58,7 +58,7 @@
             <th>Descrição</th>
             <th>Unidade</th>
             <th class="text-end">Saldo</th>
-            <th class="text-center no-print">Ações</th>
+            {% if session.perfil != 'visualizador' %}<th class="text-center no-print">Ações</th>{% endif %}
           </tr>
         </thead>
         <tbody>
@@ -71,6 +71,7 @@
             <td class="text-end fw-bold {{ 'text-danger' if s <= 0 else 'text-success' }}">
               {% if s == s | int %}{{ s | int }}{% else %}{{ "%.2f" | format(s) }}{% endif %}
             </td>
+            {% if session.perfil != 'visualizador' %}
             <td class="text-center no-print">
               <a href="/entrada?codigo={{ item.codigo }}" class="btn btn-success btn-sm" title="Entrada">
                 <i class="bi bi-plus-circle"></i>
@@ -85,11 +86,12 @@
                 <i class="bi bi-tag"></i>
               </a>
             </td>
+            {% endif %}
           </tr>
           {% else %}
           <tr>
-            <td colspan="5" class="text-center text-muted py-4">
-              Nenhum material cadastrado. <a href="/materiais">Cadastrar agora</a>
+            <td colspan="{{ 5 if session.perfil != 'visualizador' else 4 }}" class="text-center text-muted py-4">
+              Nenhum material cadastrado.{% if session.perfil != 'visualizador' %} <a href="/materiais">Cadastrar agora</a>{% endif %}
             </td>
           </tr>
           {% endfor %}

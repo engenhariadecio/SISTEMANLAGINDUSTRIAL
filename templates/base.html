@@ -195,6 +195,7 @@
     <i class="bi bi-speedometer2"></i> Dashboard
   </a>
 
+  {% if session.perfil != 'visualizador' %}
   <div class="nav-section">Movimentação</div>
   <a href="/entrada" class="nav-link {% if request.endpoint=='entrada' %}active{% endif %}">
     <i class="bi bi-box-arrow-in-down text-success"></i> Entrada
@@ -235,6 +236,7 @@
   <a href="/exportar_historico" class="nav-link">
     <i class="bi bi-file-earmark-bar-graph text-secondary"></i> Exportar Histórico CSV
   </a>
+  {% endif %}
 
   <div class="logout-area">
     <a href="/logout" class="btn btn-outline-danger btn-sm w-100">
@@ -266,7 +268,7 @@
       <i class="bi bi-person-circle" style="font-size:1.3rem;"></i>
       <div style="line-height:1.15; text-align:right;">
         <div style="font-size:.85rem; font-weight:700;">{{ session.nome }}</div>
-        <div style="font-size:.64rem; color:rgba(255,255,255,.8); text-transform:uppercase; letter-spacing:.06em;">{{ 'Administrador' if session.is_admin else 'Operador' }}</div>
+        <div style="font-size:.64rem; color:rgba(255,255,255,.8); text-transform:uppercase; letter-spacing:.06em;">{% if session.perfil == 'admin' %}Administrador{% elif session.perfil == 'visualizador' %}Visualizador{% else %}Operador{% endif %}</div>
       </div>
     </div>
     {% endif %}
