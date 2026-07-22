@@ -14,6 +14,8 @@ def init_db():
             unidade   TEXT NOT NULL
         )
     ''')
+    # Foto do material (guardada no próprio banco; idempotente, não apaga dados)
+    cur.execute('ALTER TABLE materiais ADD COLUMN IF NOT EXISTS imagem BYTEA')
     cur.execute('''
         CREATE TABLE IF NOT EXISTS movimentacoes (
             id         SERIAL PRIMARY KEY,

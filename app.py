@@ -121,6 +121,40 @@ def fmt_dt(dh):
     return str(dh)[:16]
 
 # ──────────────────────────────────────────────
+# Imagens de materiais
+# ──────────────────────────────────────────────
+def processar_imagem(file):
+    """Recebe o arquivo enviado, redimensiona (máx. 800px) e devolve os bytes
+    em JPEG. Retorna None se não houver arquivo ou se falhar."""
+    if not file or file.filename == '':
+        return None
+    try:
+        img = Image.open(file.stream)
+        img = img.convert('RGB')
+        img.thumbnail((800, 800))
+        buf = io.BytesIO()
+        img.save(buf, format='JPEG', quality=82, optimize=True)
+        return buf.getvalue()
+    except Exception as e:
+        print(f"[imagem] falha ao processar: {e}", flush=True)
+        return None
+
+
+@app.route('/material_imagem/<codigo>')
+def material_imagem(codigo):
+    row = query('SELECT imagem FROM materiais WHERE codigo=%s',
+                (codigo.strip().upper(),), fetchone=True)
+    if row and row['imagem']:
+        return Response(bytes(row['imagem']), mimetype='image/jpeg')
+    # Placeholder para não quebrar a tag <img>
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80">'
+           '<rect width="80" height="80" fill="#EEF1F6"/>'
+           '<text x="40" y="44" font-size="9" fill="#8B94A3" text-anchor="middle">sem foto</text>'
+           '</svg>')
+    return Response(svg, mimetype='image/svg+xml')
+
+
+# ──────────────────────────────────────────────
 # Auth
 # ──────────────────────────────────────────────
 @app.before_request
@@ -130,7 +164,7 @@ def verificar_login():
         return redirect(url_for('login'))
     # Perfil "visualizador": só pode ver o saldo (dashboard) e exportá-lo.
     if session.get('perfil') == 'visualizador':
-        permitido = set(rotas_liberadas) | {'index', 'exportar_saldo', 'logout'}
+        permitido = set(rotas_liberadas) | {'index', 'exportar_saldo', 'logout', 'material_imagem'}
         if request.endpoint not in permitido:
             flash('Seu perfil permite apenas visualizar o saldo.', 'warning')
             return redirect(url_for('index'))
@@ -249,7 +283,8 @@ def usuarios_senha(uid):
 # ──────────────────────────────────────────────
 @app.route('/')
 def index():
-    materiais = query('SELECT * FROM materiais ORDER BY codigo', fetchall=True)
+    materiais = query('SELECT id, codigo, descricao, unidade, (imagem IS NOT NULL) AS tem_imagem '
+                      'FROM materiais ORDER BY codigo', fetchall=True)
     saldo = []
     for m in materiais:
         s = calcular_saldo(m['codigo'])
@@ -281,9 +316,27 @@ def materiais():
                     'INSERT INTO materiais (codigo,descricao,unidade) VALUES (%s,%s,%s)',
                     (codigo, descricao, unidade), commit=True
                 )
+                # Foto opcional no cadastro
+                dados = processar_imagem(request.files.get('imagem'))
+                if dados:
+                    query('UPDATE materiais SET imagem=%s WHERE codigo=%s',
+                          (psycopg2.Binary(dados), codigo), commit=True)
                 flash(f'✅ Material {codigo} cadastrado!', 'success')
             except Exception:
                 flash(f'❌ Código {codigo} já existe ou erro ao cadastrar.', 'danger')
+        elif acao == 'imagem':
+            codigo = request.form['codigo'].strip().upper()
+            dados = processar_imagem(request.files.get('imagem'))
+            if dados:
+                query('UPDATE materiais SET imagem=%s WHERE codigo=%s',
+                      (psycopg2.Binary(dados), codigo), commit=True)
+                flash(f'📷 Foto do material {codigo} atualizada.', 'success')
+            else:
+                flash('❌ Não foi possível ler a imagem enviada.', 'danger')
+        elif acao == 'remover_imagem':
+            codigo = request.form['codigo'].strip().upper()
+            query('UPDATE materiais SET imagem=NULL WHERE codigo=%s', (codigo,), commit=True)
+            flash(f'🗑️ Foto do material {codigo} removida.', 'warning')
         elif acao == 'excluir':
             codigo = request.form['codigo'].strip().upper()
             try:
@@ -292,7 +345,8 @@ def materiais():
             except Exception:
                 flash(f'❌ Erro ao excluir {codigo}.', 'danger')
         return redirect(url_for('materiais'))
-    lista = query('SELECT * FROM materiais ORDER BY codigo', fetchall=True)
+    lista = query('SELECT id, codigo, descricao, unidade, (imagem IS NOT NULL) AS tem_imagem '
+                  'FROM materiais ORDER BY codigo', fetchall=True)
     return render_template('materiais.html', lista=lista)
 
 # ──────────────────────────────────────────────
@@ -481,7 +535,7 @@ def historico():
 # ──────────────────────────────────────────────
 @app.route('/exportar_saldo')
 def exportar_saldo():
-    materiais = query('SELECT * FROM materiais ORDER BY codigo', fetchall=True)
+    materiais = query('SELECT codigo, descricao, unidade FROM materiais ORDER BY codigo', fetchall=True)
 
     output = io.StringIO()
     output.write('Codigo;Descricao;Unidade;Saldo\n')

@@ -54,6 +54,7 @@
       <table class="table table-hover mb-0" id="tabela-saldo">
         <thead>
           <tr>
+            <th class="text-center">Foto</th>
             <th>Código</th>
             <th>Descrição</th>
             <th>Unidade</th>
@@ -65,6 +66,16 @@
           {% for item in saldo %}
           {% set s = item.saldo | float %}
           <tr class="{{ 'table-danger' if s <= 0 else '' }}">
+            <td class="text-center">
+              {% if item.tem_imagem %}
+                <a href="/material_imagem/{{ item.codigo }}" target="_blank" title="Ver foto">
+                  <img src="/material_imagem/{{ item.codigo }}" alt="{{ item.codigo }}"
+                       style="width:38px;height:38px;object-fit:cover;border-radius:7px;border:1px solid #E4E9F1;">
+                </a>
+              {% else %}
+                <span class="text-muted" title="Sem foto"><i class="bi bi-image"></i></span>
+              {% endif %}
+            </td>
             <td><code>{{ item.codigo }}</code></td>
             <td>{{ item.descricao }}</td>
             <td><span class="badge bg-secondary">{{ item.unidade }}</span></td>
@@ -90,7 +101,7 @@
           </tr>
           {% else %}
           <tr>
-            <td colspan="{{ 5 if session.perfil != 'visualizador' else 4 }}" class="text-center text-muted py-4">
+            <td colspan="{{ 6 if session.perfil != 'visualizador' else 5 }}" class="text-center text-muted py-4">
               Nenhum material cadastrado.{% if session.perfil != 'visualizador' %} <a href="/materiais">Cadastrar agora</a>{% endif %}
             </td>
           </tr>

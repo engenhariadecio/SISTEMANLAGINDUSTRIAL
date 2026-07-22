@@ -10,7 +10,7 @@
         <i class="bi bi-plus-circle"></i> Novo Material
       </div>
       <div class="card-body">
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
           <input type="hidden" name="acao" value="cadastrar">
           <div class="mb-3">
             <label class="form-label fw-bold">Código</label>
@@ -36,6 +36,11 @@
               <option value="GL">GL — Galão</option>
               <option value="PR">PR — Par</option>
             </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-bold">Foto <span class="text-muted small fw-normal">(opcional)</span></label>
+            <input type="file" name="imagem" class="form-control" accept="image/*">
+            <div class="form-text">Pode adicionar agora ou depois, pela lista ao lado.</div>
           </div>
           <button type="submit" class="btn btn-dark btn-lg w-100">
             <i class="bi bi-plus-circle"></i> Cadastrar
@@ -84,6 +89,7 @@
           <table class="table table-hover mb-0" id="tabela-mat">
             <thead style="position:sticky;top:0;">
               <tr>
+                <th class="text-center">Foto</th>
                 <th>Código</th>
                 <th>Descrição</th>
                 <th>Unidade</th>
@@ -93,6 +99,16 @@
             <tbody>
               {% for item in lista %}
               <tr>
+                <td class="text-center">
+                  {% if item.tem_imagem %}
+                    <a href="/material_imagem/{{ item.codigo }}" target="_blank" title="Ver foto">
+                      <img src="/material_imagem/{{ item.codigo }}" alt="{{ item.codigo }}"
+                           style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid #E4E9F1;">
+                    </a>
+                  {% else %}
+                    <span class="text-muted" title="Sem foto"><i class="bi bi-image" style="font-size:1.3rem;"></i></span>
+                  {% endif %}
+                </td>
                 <td><code>{{ item.codigo }}</code></td>
                 <td style="font-size:0.88rem;">{{ item.descricao }}</td>
                 <td><span class="badge bg-secondary">{{ item.unidade }}</span></td>
@@ -101,6 +117,14 @@
                      class="btn btn-primary btn-sm" title="Imprimir Etiqueta">
                     <i class="bi bi-tag"></i>
                   </a>
+                  <form method="POST" enctype="multipart/form-data" style="display:inline;">
+                    <input type="hidden" name="acao" value="imagem">
+                    <input type="hidden" name="codigo" value="{{ item.codigo }}">
+                    <label class="btn btn-outline-secondary btn-sm mb-0" title="Enviar/trocar foto">
+                      <i class="bi bi-camera"></i>
+                      <input type="file" name="imagem" accept="image/*" hidden onchange="this.form.submit()">
+                    </label>
+                  </form>
                   <form method="POST" style="display:inline;"
                         onsubmit="return confirm('Excluir {{ item.codigo }}?')">
                     <input type="hidden" name="acao" value="excluir">
@@ -113,7 +137,7 @@
               </tr>
               {% else %}
               <tr>
-                <td colspan="4" class="text-center text-muted py-4">
+                <td colspan="5" class="text-center text-muted py-4">
                   Nenhum material cadastrado.
                 </td>
               </tr>
