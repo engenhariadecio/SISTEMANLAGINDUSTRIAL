@@ -284,7 +284,7 @@ def usuarios_senha(uid):
 @app.route('/')
 def index():
     materiais = query('SELECT id, codigo, descricao, unidade, (imagem IS NOT NULL) AS tem_imagem '
-                      'FROM materiais ORDER BY codigo', fetchall=True)
+                      'FROM materiais ORDER BY descricao', fetchall=True)
     saldo = []
     for m in materiais:
         s = calcular_saldo(m['codigo'])
@@ -346,7 +346,7 @@ def materiais():
                 flash(f'❌ Erro ao excluir {codigo}.', 'danger')
         return redirect(url_for('materiais'))
     lista = query('SELECT id, codigo, descricao, unidade, (imagem IS NOT NULL) AS tem_imagem '
-                  'FROM materiais ORDER BY codigo', fetchall=True)
+                  'FROM materiais ORDER BY descricao', fetchall=True)
     return render_template('materiais.html', lista=lista)
 
 # ──────────────────────────────────────────────
@@ -535,7 +535,7 @@ def historico():
 # ──────────────────────────────────────────────
 @app.route('/exportar_saldo')
 def exportar_saldo():
-    materiais = query('SELECT codigo, descricao, unidade FROM materiais ORDER BY codigo', fetchall=True)
+    materiais = query('SELECT codigo, descricao, unidade FROM materiais ORDER BY descricao', fetchall=True)
 
     output = io.StringIO()
     output.write('Codigo;Descricao;Unidade;Saldo\n')
